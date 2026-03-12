@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/epalmerini/drakkar/browse"
-	"github.com/mark3labs/mcp-go/mcp"
+	mcptestutil "github.com/epalmerini/drakkar/internal/mcptest"
 	"github.com/mark3labs/mcp-go/mcptest"
 )
 
@@ -38,50 +38,22 @@ func (f *fakeBrowser) Stat(_ context.Context, uri string) (string, error) {
 
 func buildServer(t *testing.T, fake *fakeBrowser) *mcptest.Server {
 	t.Helper()
-	srv := mcptest.NewUnstartedServer(t)
-	browse.Register(srv, fake)
-	if err := srv.Start(context.Background()); err != nil {
-		t.Fatalf("failed to start test server: %v", err)
-	}
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-func callTool(t *testing.T, s *mcptest.Server, args map[string]any) *mcp.CallToolResult {
-	t.Helper()
-	req := mcp.CallToolRequest{}
-	req.Params.Name = "browse"
-	req.Params.Arguments = args
-	result, err := s.Client().CallTool(context.Background(), req)
-	if err != nil {
-		t.Fatalf("CallTool error: %v", err)
-	}
-	return result
-}
-
-func textContent(t *testing.T, result *mcp.CallToolResult) string {
-	t.Helper()
-	if len(result.Content) == 0 {
-		t.Fatal("result has no content")
-	}
-	tc, ok := result.Content[0].(mcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
-	return tc.Text
+	return mcptestutil.StartServer(t, func(srv *mcptest.Server) {
+		browse.Register(srv, fake)
+	})
 }
 
 func TestBrowse_ModeLS_CallsList(t *testing.T) {
 	fb := &fakeBrowser{result: "file1.txt\nfile2.txt"}
 	s := buildServer(t, fb)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "browse", map[string]any{
 		"uri":  "file:///tmp",
 		"mode": "ls",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fb.calledMethod != "List" {
 		t.Errorf("expected List to be called, got %q", fb.calledMethod)
@@ -89,7 +61,7 @@ func TestBrowse_ModeLS_CallsList(t *testing.T) {
 	if fb.calledURI != "file:///tmp" {
 		t.Errorf("expected URI %q, got %q", "file:///tmp", fb.calledURI)
 	}
-	if got := textContent(t, result); got != "file1.txt\nfile2.txt" {
+	if got := mcptestutil.TextContent(t, result); got != "file1.txt\nfile2.txt" {
 		t.Errorf("unexpected content: %q", got)
 	}
 }
@@ -98,18 +70,18 @@ func TestBrowse_ModeTree_CallsTree(t *testing.T) {
 	fb := &fakeBrowser{result: ".\n└── file1.txt"}
 	s := buildServer(t, fb)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "browse", map[string]any{
 		"uri":  "file:///tmp",
 		"mode": "tree",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fb.calledMethod != "Tree" {
 		t.Errorf("expected Tree to be called, got %q", fb.calledMethod)
 	}
-	if got := textContent(t, result); got != ".\n└── file1.txt" {
+	if got := mcptestutil.TextContent(t, result); got != ".\n└── file1.txt" {
 		t.Errorf("unexpected content: %q", got)
 	}
 }
@@ -118,13 +90,13 @@ func TestBrowse_ModeStat_CallsStat(t *testing.T) {
 	fb := &fakeBrowser{result: "size: 1024"}
 	s := buildServer(t, fb)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "browse", map[string]any{
 		"uri":  "file:///tmp/file.txt",
 		"mode": "stat",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fb.calledMethod != "Stat" {
 		t.Errorf("expected Stat to be called, got %q", fb.calledMethod)
@@ -132,7 +104,7 @@ func TestBrowse_ModeStat_CallsStat(t *testing.T) {
 	if fb.calledURI != "file:///tmp/file.txt" {
 		t.Errorf("expected URI %q, got %q", "file:///tmp/file.txt", fb.calledURI)
 	}
-	if got := textContent(t, result); got != "size: 1024" {
+	if got := mcptestutil.TextContent(t, result); got != "size: 1024" {
 		t.Errorf("unexpected content: %q", got)
 	}
 }
@@ -141,12 +113,12 @@ func TestBrowse_NoMode_DefaultsToLS(t *testing.T) {
 	fb := &fakeBrowser{result: "dir/"}
 	s := buildServer(t, fb)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "browse", map[string]any{
 		"uri": "file:///home",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fb.calledMethod != "List" {
 		t.Errorf("expected List to be called by default, got %q", fb.calledMethod)
@@ -157,7 +129,7 @@ func TestBrowse_MissingURI_ReturnsError(t *testing.T) {
 	fb := &fakeBrowser{}
 	s := buildServer(t, fb)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "browse", map[string]any{
 		"mode": "ls",
 	})
 
@@ -173,7 +145,7 @@ func TestBrowse_InvalidMode_ReturnsError(t *testing.T) {
 	fb := &fakeBrowser{}
 	s := buildServer(t, fb)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "browse", map[string]any{
 		"uri":  "file:///tmp",
 		"mode": "walk",
 	})
@@ -190,7 +162,7 @@ func TestBrowse_BrowserError_PropagatesAsError(t *testing.T) {
 	fb := &fakeBrowser{err: errors.New("connection refused")}
 	s := buildServer(t, fb)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "browse", map[string]any{
 		"uri":  "file:///tmp",
 		"mode": "ls",
 	})
@@ -198,7 +170,7 @@ func TestBrowse_BrowserError_PropagatesAsError(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("expected error result when browser returns error")
 	}
-	content := textContent(t, result)
+	content := mcptestutil.TextContent(t, result)
 	if content == "" {
 		t.Error("expected non-empty error message")
 	}

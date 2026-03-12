@@ -5,19 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/epalmerini/drakkar/internal/mcputil"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 )
 
-// ToolAdder is satisfied by *server.MCPServer and *mcptest.Server, allowing
-// Register to be used in both production wiring and tests without coupling to
-// a concrete type.
-type ToolAdder interface {
-	AddTool(tool mcp.Tool, handler server.ToolHandlerFunc)
-}
-
 // Register wires the add_memory tool into the MCP server.
-func Register(s ToolAdder, writer MemoryWriter) {
+func Register(s mcputil.ToolAdder, writer MemoryWriter) {
 	tool := mcp.NewTool("add_memory",
 		mcp.WithDescription("Store a memory entry with an optional role"),
 		mcp.WithString("content",
@@ -32,7 +25,7 @@ func Register(s ToolAdder, writer MemoryWriter) {
 	s.AddTool(tool, addMemoryHandler(writer))
 }
 
-func addMemoryHandler(writer MemoryWriter) server.ToolHandlerFunc {
+func addMemoryHandler(writer MemoryWriter) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		content, err := req.RequireString("content")
 		if err != nil {

@@ -2,12 +2,11 @@ package memory_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/epalmerini/drakkar/memory"
-	"github.com/mark3labs/mcp-go/mcp"
+	mcptestutil "github.com/epalmerini/drakkar/internal/mcptest"
 	"github.com/mark3labs/mcp-go/mcptest"
 )
 
@@ -27,25 +26,9 @@ func (f *fakeWriter) AddMemory(_ context.Context, content string, role string) (
 
 func buildServer(t *testing.T, fake *fakeWriter) *mcptest.Server {
 	t.Helper()
-	srv := mcptest.NewUnstartedServer(t)
-	memory.Register(srv, fake)
-	if err := srv.Start(context.Background()); err != nil {
-		t.Fatalf("failed to start test server: %v", err)
-	}
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-func callTool(t *testing.T, s *mcptest.Server, args map[string]any) *mcp.CallToolResult {
-	t.Helper()
-	req := mcp.CallToolRequest{}
-	req.Params.Name = "add_memory"
-	req.Params.Arguments = args
-	result, err := s.Client().CallTool(context.Background(), req)
-	if err != nil {
-		t.Fatalf("CallTool error: %v", err)
-	}
-	return result
+	return mcptestutil.StartServer(t, func(srv *mcptest.Server) {
+		memory.Register(srv, fake)
+	})
 }
 
 func TestAddMemory_WithContentAndRole(t *testing.T) {
@@ -54,7 +37,7 @@ func TestAddMemory_WithContentAndRole(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "add_memory", map[string]any{
 		"content": "remember this",
 		"role":    "assistant",
 	})
@@ -62,18 +45,10 @@ func TestAddMemory_WithContentAndRole(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("expected success, got error result")
 	}
-	if len(result.Content) == 0 {
-		t.Fatal("expected non-empty content")
-	}
-	text, ok := result.Content[0].(mcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
 
 	var got memory.MemoryResult
-	if err := json.Unmarshal([]byte(text.Text), &got); err != nil {
-		t.Fatalf("failed to unmarshal result JSON: %v", err)
-	}
+	mcptestutil.DecodeText(t, result, &got)
+
 	if got.URI != "mem://1" || got.Message != "stored" {
 		t.Errorf("unexpected result: %+v", got)
 	}
@@ -85,7 +60,7 @@ func TestAddMemory_DefaultsRoleToUser(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	callTool(t, s, map[string]any{
+	mcptestutil.CallTool(t, s, "add_memory", map[string]any{
 		"content": "hello",
 	})
 
@@ -100,7 +75,7 @@ func TestAddMemory_EmptyContentReturnsError(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "add_memory", map[string]any{
 		"content": "",
 	})
 
@@ -115,7 +90,7 @@ func TestAddMemory_PropagatesWriterError(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "add_memory", map[string]any{
 		"content": "some content",
 		"role":    "user",
 	})
@@ -131,7 +106,7 @@ func TestAddMemory_CapturesCorrectValues(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	callTool(t, s, map[string]any{
+	mcptestutil.CallTool(t, s, "add_memory", map[string]any{
 		"content": "my important note",
 		"role":    "assistant",
 	})

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/epalmerini/drakkar/content"
-	"github.com/mark3labs/mcp-go/mcp"
+	mcptestutil "github.com/epalmerini/drakkar/internal/mcptest"
 	"github.com/mark3labs/mcp-go/mcptest"
 )
 
@@ -38,50 +38,22 @@ func (f *fakeReader) ReadFull(_ context.Context, uri string) (string, error) {
 
 func buildServer(t *testing.T, fake *fakeReader) *mcptest.Server {
 	t.Helper()
-	srv := mcptest.NewUnstartedServer(t)
-	content.Register(srv, fake)
-	if err := srv.Start(context.Background()); err != nil {
-		t.Fatalf("failed to start test server: %v", err)
-	}
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-func callTool(t *testing.T, s *mcptest.Server, args map[string]any) *mcp.CallToolResult {
-	t.Helper()
-	req := mcp.CallToolRequest{}
-	req.Params.Name = "read_content"
-	req.Params.Arguments = args
-	result, err := s.Client().CallTool(context.Background(), req)
-	if err != nil {
-		t.Fatalf("CallTool error: %v", err)
-	}
-	return result
-}
-
-func textContent(t *testing.T, result *mcp.CallToolResult) string {
-	t.Helper()
-	if len(result.Content) == 0 {
-		t.Fatal("result has no content")
-	}
-	tc, ok := result.Content[0].(mcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
-	return tc.Text
+	return mcptestutil.StartServer(t, func(srv *mcptest.Server) {
+		content.Register(srv, fake)
+	})
 }
 
 func TestReadContent_AbstractLevel(t *testing.T) {
 	fake := &fakeReader{result: "abstract text"}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "read_content", map[string]any{
 		"uri":   "mem://some/path",
 		"level": "abstract",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fake.calledMethod != "abstract" {
 		t.Errorf("expected ReadAbstract to be called, got %q", fake.calledMethod)
@@ -89,7 +61,7 @@ func TestReadContent_AbstractLevel(t *testing.T) {
 	if fake.calledURI != "mem://some/path" {
 		t.Errorf("expected URI %q, got %q", "mem://some/path", fake.calledURI)
 	}
-	if got := textContent(t, result); got != "abstract text" {
+	if got := mcptestutil.TextContent(t, result); got != "abstract text" {
 		t.Errorf("expected %q, got %q", "abstract text", got)
 	}
 }
@@ -98,18 +70,18 @@ func TestReadContent_OverviewLevel(t *testing.T) {
 	fake := &fakeReader{result: "overview text"}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "read_content", map[string]any{
 		"uri":   "mem://another/path",
 		"level": "overview",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fake.calledMethod != "overview" {
 		t.Errorf("expected ReadOverview to be called, got %q", fake.calledMethod)
 	}
-	if got := textContent(t, result); got != "overview text" {
+	if got := mcptestutil.TextContent(t, result); got != "overview text" {
 		t.Errorf("expected %q, got %q", "overview text", got)
 	}
 }
@@ -118,18 +90,18 @@ func TestReadContent_FullLevel(t *testing.T) {
 	fake := &fakeReader{result: "full text"}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "read_content", map[string]any{
 		"uri":   "mem://full/path",
 		"level": "full",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fake.calledMethod != "full" {
 		t.Errorf("expected ReadFull to be called, got %q", fake.calledMethod)
 	}
-	if got := textContent(t, result); got != "full text" {
+	if got := mcptestutil.TextContent(t, result); got != "full text" {
 		t.Errorf("expected %q, got %q", "full text", got)
 	}
 }
@@ -138,12 +110,12 @@ func TestReadContent_DefaultLevelIsOverview(t *testing.T) {
 	fake := &fakeReader{result: "default overview text"}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "read_content", map[string]any{
 		"uri": "mem://default/path",
 	})
 
 	if result.IsError {
-		t.Fatalf("expected success, got error: %s", textContent(t, result))
+		t.Fatalf("expected success, got error: %s", mcptestutil.TextContent(t, result))
 	}
 	if fake.calledMethod != "overview" {
 		t.Errorf("expected ReadOverview as default, got %q", fake.calledMethod)
@@ -154,7 +126,7 @@ func TestReadContent_MissingURI(t *testing.T) {
 	fake := &fakeReader{}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "read_content", map[string]any{
 		"level": "overview",
 	})
 
@@ -170,7 +142,7 @@ func TestReadContent_InvalidLevel(t *testing.T) {
 	fake := &fakeReader{}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "read_content", map[string]any{
 		"uri":   "mem://some/path",
 		"level": "nonexistent",
 	})
@@ -187,7 +159,7 @@ func TestReadContent_ErrorPropagation(t *testing.T) {
 	fake := &fakeReader{err: fmt.Errorf("storage unavailable")}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, map[string]any{
+	result := mcptestutil.CallTool(t, s, "read_content", map[string]any{
 		"uri":   "mem://broken/path",
 		"level": "full",
 	})

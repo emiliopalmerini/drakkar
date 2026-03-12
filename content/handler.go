@@ -4,19 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/epalmerini/drakkar/internal/mcputil"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 )
 
-// ToolAdder is satisfied by *server.MCPServer and *mcptest.Server, allowing
-// Register to be used in both production wiring and tests without coupling to
-// a concrete type.
-type ToolAdder interface {
-	AddTool(tool mcp.Tool, handler server.ToolHandlerFunc)
-}
-
 // Register adds the read_content tool to the MCP server.
-func Register(s ToolAdder, reader ContentReader) {
+func Register(s mcputil.ToolAdder, reader ContentReader) {
 	tool := mcp.NewTool("read_content",
 		mcp.WithDescription("Read content at a chosen level of detail: abstract, overview, or full."),
 		mcp.WithString("uri", mcp.Required(), mcp.Description("Content URI to read")),
@@ -28,7 +21,7 @@ func Register(s ToolAdder, reader ContentReader) {
 	s.AddTool(tool, readContentHandler(reader))
 }
 
-func readContentHandler(reader ContentReader) server.ToolHandlerFunc {
+func readContentHandler(reader ContentReader) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		uri, err := req.RequireString("uri")
 		if err != nil {

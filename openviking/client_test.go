@@ -44,7 +44,7 @@ func TestFind_SendsCorrectRequest(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	result, err := c.Find(context.Background(), search.Request{
 		Query:          "test query",
 		Limit:          5,
@@ -87,7 +87,7 @@ func TestFind_ServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	_, err := c.Find(context.Background(), search.Request{Query: "fail"})
 	if err == nil {
 		t.Fatal("expected error for 500 response")
@@ -113,7 +113,7 @@ func TestSearch_SendsSessionID(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	_, err := c.Search(context.Background(), search.Request{
 		Query: "context query",
 		Limit: 3,
@@ -140,7 +140,7 @@ func TestReadAbstract(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	text, err := c.ReadAbstract(context.Background(), "mem://doc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -159,7 +159,7 @@ func TestReadOverview(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	text, err := c.ReadOverview(context.Background(), "mem://doc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -178,7 +178,7 @@ func TestReadFull(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	text, err := c.ReadFull(context.Background(), "mem://doc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -194,7 +194,7 @@ func TestReadContent_ServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	_, err := c.ReadAbstract(context.Background(), "mem://missing")
 	if err == nil {
 		t.Fatal("expected error for 404 response")
@@ -217,7 +217,7 @@ func TestList(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	result, err := c.List(context.Background(), "mem://dir")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -238,7 +238,7 @@ func TestTree(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	result, err := c.Tree(context.Background(), "mem://dir")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -261,7 +261,7 @@ func TestStat(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	result, err := c.Stat(context.Background(), "mem://dir/file.txt")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -277,7 +277,7 @@ func TestBrowse_ServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	_, err := c.List(context.Background(), "mem://secret")
 	if err == nil {
 		t.Fatal("expected error for 403 response")
@@ -325,7 +325,7 @@ func TestAddMemory_CreatesSessionAndAddsMessage(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	result, err := c.AddMemory(context.Background(), "remember this", "user")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -374,7 +374,7 @@ func TestAddMemory_ReusesSession(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 
 	// First call creates session
 	_, err := c.AddMemory(context.Background(), "first", "user")
@@ -399,7 +399,7 @@ func TestAddMemory_SessionCreateError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := openviking.NewClient(srv.URL)
+	c := openviking.NewClient(srv.URL, "")
 	_, err := c.AddMemory(context.Background(), "content", "user")
 	if err == nil {
 		t.Fatal("expected error when session creation fails")

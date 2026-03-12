@@ -16,8 +16,9 @@ func newServer() *server.MCPServer {
 	if url == "" {
 		url = "http://localhost:1933"
 	}
+	apiKey := os.Getenv("OPENVIKING_API_KEY")
 
-	client := openviking.NewClient(url)
+	client := openviking.NewClient(url, apiKey)
 
 	s := server.NewMCPServer("drakkar", "0.1.0", server.WithToolCapabilities(true))
 	search.Register(s, client)

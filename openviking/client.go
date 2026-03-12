@@ -26,6 +26,7 @@ var (
 // Client implements all port interfaces via HTTP calls to an OpenViking server.
 type Client struct {
 	baseURL    string
+	apiKey     string
 	httpClient *http.Client
 
 	mu        sync.Mutex
@@ -33,9 +34,10 @@ type Client struct {
 }
 
 // NewClient creates a new OpenViking HTTP client.
-func NewClient(baseURL string) *Client {
+func NewClient(baseURL, apiKey string) *Client {
 	return &Client{
 		baseURL:    baseURL,
+		apiKey:     apiKey,
 		httpClient: &http.Client{},
 	}
 }
@@ -197,6 +199,9 @@ func (c *Client) postJSON(ctx context.Context, path string, body any, dst any) e
 		return fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -225,6 +230,9 @@ func (c *Client) getString(ctx context.Context, path, uri string) (string, error
 	q := req.URL.Query()
 	q.Set("uri", uri)
 	req.URL.RawQuery = q.Encode()
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

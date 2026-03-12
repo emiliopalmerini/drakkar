@@ -1,23 +1,20 @@
-.PHONY: build test lint fmt vet clean run
-
-build:
-	go build -o drakkar .
-
-test:
-	go test ./...
-
-lint: vet
-	@echo "lint: done (vet only, no external tools)"
+.PHONY: build test fmt vet clean run
 
 fmt:
 	go fmt ./...
 
-vet:
+vet: fmt
 	go vet ./...
+
+test: vet
+	go test ./...
+
+build: vet
+	go build -o drakkar .
+
+run: build
+	./drakkar
 
 clean:
 	rm -f drakkar
 	go clean
-
-run: build
-	./drakkar

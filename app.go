@@ -14,7 +14,7 @@ import (
 func newServer() *server.MCPServer {
 	url := os.Getenv("OPENVIKING_URL")
 	if url == "" {
-		url = "http://localhost:8080"
+		url = "http://localhost:1933"
 	}
 
 	client := openviking.NewClient(url)

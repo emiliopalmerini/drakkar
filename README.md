@@ -24,8 +24,8 @@ Drakkar is a Go MCP server that wraps [OpenViking](https://github.com/emiliopalm
 # Build
 go build -o drakkar .
 
-# Run (reads OPENVIKING_URL, defaults to http://localhost:8080)
-export OPENVIKING_URL=http://localhost:8080
+# Run (reads OPENVIKING_URL, defaults to http://localhost:1933)
+export OPENVIKING_URL=http://localhost:1933
 ./drakkar
 ```
 

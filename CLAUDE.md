@@ -40,4 +40,4 @@ Handlers depend only on their port interface — never on `openviking` directly.
 
 ## Config
 
-- `OPENVIKING_URL` env var (default `http://localhost:8080`)
+- `OPENVIKING_URL` env var (default `http://localhost:1933`)

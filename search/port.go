@@ -2,16 +2,8 @@ package search
 
 import "context"
 
-// FindRequest parameters for a memory find operation.
-type FindRequest struct {
-	Query          string
-	Limit          int
-	ScoreThreshold float64
-	TargetURI      string
-}
-
-// SearchRequest parameters for a context search operation.
-type SearchRequest struct {
+// Request parameters for a find or search operation.
+type Request struct {
 	Query          string
 	Limit          int
 	ScoreThreshold float64
@@ -34,6 +26,6 @@ type FindResult struct {
 // Searcher is the port interface for search and find operations.
 // Implementations must be safe for concurrent use.
 type Searcher interface {
-	Find(ctx context.Context, req FindRequest) (*FindResult, error)
-	Search(ctx context.Context, req SearchRequest) (*FindResult, error)
+	Find(ctx context.Context, req Request) (*FindResult, error)
+	Search(ctx context.Context, req Request) (*FindResult, error)
 }

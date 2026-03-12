@@ -2,12 +2,11 @@ package search_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/epalmerini/drakkar/search"
-	"github.com/mark3labs/mcp-go/mcp"
+	mcptestutil "github.com/epalmerini/drakkar/internal/mcptest"
 	"github.com/mark3labs/mcp-go/mcptest"
 )
 
@@ -19,59 +18,25 @@ type fakeSearcher struct {
 	searchErr    error
 
 	// Capture last call arguments for assertion.
-	lastFindReq   search.FindRequest
-	lastSearchReq search.SearchRequest
+	lastFindReq   search.Request
+	lastSearchReq search.Request
 }
 
-func (f *fakeSearcher) Find(ctx context.Context, req search.FindRequest) (*search.FindResult, error) {
+func (f *fakeSearcher) Find(ctx context.Context, req search.Request) (*search.FindResult, error) {
 	f.lastFindReq = req
 	return f.findResult, f.findErr
 }
 
-func (f *fakeSearcher) Search(ctx context.Context, req search.SearchRequest) (*search.FindResult, error) {
+func (f *fakeSearcher) Search(ctx context.Context, req search.Request) (*search.FindResult, error) {
 	f.lastSearchReq = req
 	return f.searchResult, f.searchErr
 }
 
-// buildServer registers the search tools against a fake searcher and returns a
-// started mcptest server ready to call.
 func buildServer(t *testing.T, fake *fakeSearcher) *mcptest.Server {
 	t.Helper()
-	srv := mcptest.NewUnstartedServer(t)
-	search.Register(srv, fake)
-	if err := srv.Start(context.Background()); err != nil {
-		t.Fatalf("failed to start test server: %v", err)
-	}
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-// callTool invokes a named tool with an arguments map.
-func callTool(t *testing.T, s *mcptest.Server, toolName string, args map[string]any) *mcp.CallToolResult {
-	t.Helper()
-	req := mcp.CallToolRequest{}
-	req.Params.Name = toolName
-	req.Params.Arguments = args
-	result, err := s.Client().CallTool(context.Background(), req)
-	if err != nil {
-		t.Fatalf("CallTool(%q) error: %v", toolName, err)
-	}
-	return result
-}
-
-// decodeText unmarshals the first text content from a result into dst.
-func decodeText(t *testing.T, result *mcp.CallToolResult, dst any) {
-	t.Helper()
-	if len(result.Content) == 0 {
-		t.Fatal("result has no content")
-	}
-	text, ok := result.Content[0].(mcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", result.Content[0])
-	}
-	if err := json.Unmarshal([]byte(text.Text), dst); err != nil {
-		t.Fatalf("unmarshal result text: %v", err)
-	}
+	return mcptestutil.StartServer(t, func(srv *mcptest.Server) {
+		search.Register(srv, fake)
+	})
 }
 
 // ---- search_memories tests ----
@@ -88,7 +53,7 @@ func TestSearchMemories_AllParams(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, "search_memories", map[string]any{
+	result := mcptestutil.CallTool(t, s, "search_memories", map[string]any{
 		"query":           "golang context",
 		"limit":           5,
 		"score_threshold": 0.8,
@@ -100,7 +65,7 @@ func TestSearchMemories_AllParams(t *testing.T) {
 	}
 
 	var got search.FindResult
-	decodeText(t, result, &got)
+	mcptestutil.DecodeText(t, result, &got)
 
 	if got.Total != 2 {
 		t.Errorf("Total: got %d, want 2", got.Total)
@@ -132,7 +97,7 @@ func TestSearchMemories_DefaultParams(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, "search_memories", map[string]any{
+	result := mcptestutil.CallTool(t, s, "search_memories", map[string]any{
 		"query": "minimal",
 	})
 
@@ -155,7 +120,7 @@ func TestSearchMemories_EmptyQueryReturnsError(t *testing.T) {
 	fake := &fakeSearcher{}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, "search_memories", map[string]any{
+	result := mcptestutil.CallTool(t, s, "search_memories", map[string]any{
 		"query": "",
 	})
 
@@ -177,7 +142,7 @@ func TestContextSearch_AllParams(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, "context_search", map[string]any{
+	result := mcptestutil.CallTool(t, s, "context_search", map[string]any{
 		"query":           "project structure",
 		"limit":           3,
 		"score_threshold": 0.9,
@@ -189,7 +154,7 @@ func TestContextSearch_AllParams(t *testing.T) {
 	}
 
 	var got search.FindResult
-	decodeText(t, result, &got)
+	mcptestutil.DecodeText(t, result, &got)
 
 	if got.Total != 1 {
 		t.Errorf("Total: got %d, want 1", got.Total)
@@ -215,7 +180,7 @@ func TestContextSearch_DefaultParams(t *testing.T) {
 	}
 	s := buildServer(t, fake)
 
-	result := callTool(t, s, "context_search", map[string]any{
+	result := mcptestutil.CallTool(t, s, "context_search", map[string]any{
 		"query": "defaults",
 	})
 
@@ -244,7 +209,7 @@ func TestSearcherError_Propagation(t *testing.T) {
 
 	for _, toolName := range []string{"search_memories", "context_search"} {
 		t.Run(toolName, func(t *testing.T) {
-			result := callTool(t, s, toolName, map[string]any{
+			result := mcptestutil.CallTool(t, s, toolName, map[string]any{
 				"query": "anything",
 			})
 			if !result.IsError {

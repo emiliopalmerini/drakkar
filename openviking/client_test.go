@@ -45,7 +45,7 @@ func TestFind_SendsCorrectRequest(t *testing.T) {
 	defer srv.Close()
 
 	c := openviking.NewClient(srv.URL)
-	result, err := c.Find(context.Background(), search.FindRequest{
+	result, err := c.Find(context.Background(), search.Request{
 		Query:          "test query",
 		Limit:          5,
 		ScoreThreshold: 0.8,
@@ -88,7 +88,7 @@ func TestFind_ServerError(t *testing.T) {
 	defer srv.Close()
 
 	c := openviking.NewClient(srv.URL)
-	_, err := c.Find(context.Background(), search.FindRequest{Query: "fail"})
+	_, err := c.Find(context.Background(), search.Request{Query: "fail"})
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -114,7 +114,7 @@ func TestSearch_SendsSessionID(t *testing.T) {
 	defer srv.Close()
 
 	c := openviking.NewClient(srv.URL)
-	_, err := c.Search(context.Background(), search.SearchRequest{
+	_, err := c.Search(context.Background(), search.Request{
 		Query: "context query",
 		Limit: 3,
 	})

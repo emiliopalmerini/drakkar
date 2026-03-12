@@ -56,24 +56,15 @@ type matchedContext struct {
 	Score    float64 `json:"score"`
 }
 
-func (c *Client) Find(ctx context.Context, req search.FindRequest) (*search.FindResult, error) {
-	body := map[string]any{
-		"query":           req.Query,
-		"limit":           req.Limit,
-		"score_threshold": req.ScoreThreshold,
-	}
-	if req.TargetURI != "" {
-		body["target_uri"] = req.TargetURI
-	}
-
-	var resp findResponse
-	if err := c.postJSON(ctx, "/api/v1/search/find", body, &resp); err != nil {
-		return nil, err
-	}
-	return toFindResult(&resp), nil
+func (c *Client) Find(ctx context.Context, req search.Request) (*search.FindResult, error) {
+	return c.doSearch(ctx, "/api/v1/search/find", req)
 }
 
-func (c *Client) Search(ctx context.Context, req search.SearchRequest) (*search.FindResult, error) {
+func (c *Client) Search(ctx context.Context, req search.Request) (*search.FindResult, error) {
+	return c.doSearch(ctx, "/api/v1/search/search", req)
+}
+
+func (c *Client) doSearch(ctx context.Context, path string, req search.Request) (*search.FindResult, error) {
 	body := map[string]any{
 		"query":           req.Query,
 		"limit":           req.Limit,
@@ -84,7 +75,7 @@ func (c *Client) Search(ctx context.Context, req search.SearchRequest) (*search.
 	}
 
 	var resp findResponse
-	if err := c.postJSON(ctx, "/api/v1/search/search", body, &resp); err != nil {
+	if err := c.postJSON(ctx, path, body, &resp); err != nil {
 		return nil, err
 	}
 	return toFindResult(&resp), nil
@@ -115,29 +106,29 @@ func toFindResult(resp *findResponse) *search.FindResult {
 // --- ContentReader ---
 
 func (c *Client) ReadAbstract(ctx context.Context, uri string) (string, error) {
-	return c.getContent(ctx, "/api/v1/content/abstract", uri)
+	return c.getString(ctx, "/api/v1/content/abstract", uri)
 }
 
 func (c *Client) ReadOverview(ctx context.Context, uri string) (string, error) {
-	return c.getContent(ctx, "/api/v1/content/overview", uri)
+	return c.getString(ctx, "/api/v1/content/overview", uri)
 }
 
 func (c *Client) ReadFull(ctx context.Context, uri string) (string, error) {
-	return c.getContent(ctx, "/api/v1/content/read", uri)
+	return c.getString(ctx, "/api/v1/content/read", uri)
 }
 
 // --- Browser ---
 
 func (c *Client) List(ctx context.Context, uri string) (string, error) {
-	return c.getBrowse(ctx, "/api/v1/fs/ls", uri)
+	return c.getString(ctx, "/api/v1/fs/ls", uri)
 }
 
 func (c *Client) Tree(ctx context.Context, uri string) (string, error) {
-	return c.getBrowse(ctx, "/api/v1/fs/tree", uri)
+	return c.getString(ctx, "/api/v1/fs/tree", uri)
 }
 
 func (c *Client) Stat(ctx context.Context, uri string) (string, error) {
-	return c.getBrowse(ctx, "/api/v1/fs/stat", uri)
+	return c.getString(ctx, "/api/v1/fs/stat", uri)
 }
 
 // --- MemoryWriter ---
@@ -226,34 +217,7 @@ func (c *Client) postJSON(ctx context.Context, path string, body any, dst any) e
 	return nil
 }
 
-func (c *Client) getContent(ctx context.Context, path, uri string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
-	}
-	q := req.URL.Query()
-	q.Set("uri", uri)
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
-	}
-	return string(body), nil
-}
-
-func (c *Client) getBrowse(ctx context.Context, path, uri string) (string, error) {
+func (c *Client) getString(ctx context.Context, path, uri string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)

@@ -34,12 +34,15 @@ func TestFind_SendsCorrectRequest(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &gotBody)
 		json.NewEncoder(w).Encode(map[string]any{
-			"resources": []map[string]any{
-				{"uri": "mem://1", "abstract": "first result", "score": 0.95},
+			"status": "ok",
+			"result": map[string]any{
+				"resources": []map[string]any{
+					{"uri": "mem://1", "abstract": "first result", "score": 0.95},
+				},
+				"memories": []any{},
+				"skills":   []any{},
+				"total":    1,
 			},
-			"memories": []any{},
-			"skills":   []any{},
-			"total":    1,
 		})
 	}))
 	defer srv.Close()
@@ -114,10 +117,13 @@ func TestSearch_SendsSessionID(t *testing.T) {
 			body, _ := io.ReadAll(r.Body)
 			json.Unmarshal(body, &gotSearchBody)
 			json.NewEncoder(w).Encode(map[string]any{
-				"resources": []any{},
-				"memories":  []any{},
-				"skills":    []any{},
-				"total":     0,
+				"status": "ok",
+				"result": map[string]any{
+					"resources": []any{},
+					"memories":  []any{},
+					"skills":    []any{},
+					"total":     0,
+				},
 			})
 		default:
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)

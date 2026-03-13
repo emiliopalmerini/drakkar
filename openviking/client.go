@@ -58,6 +58,11 @@ type matchedContext struct {
 	Score    float64 `json:"score"`
 }
 
+// searchResponse wraps the OpenViking envelope around findResponse.
+type searchResponse struct {
+	Result findResponse `json:"result"`
+}
+
 func (c *Client) Find(ctx context.Context, req search.Request) (*search.FindResult, error) {
 	return c.doSearch(ctx, "/api/v1/search/find", req)
 }
@@ -78,11 +83,11 @@ func (c *Client) Search(ctx context.Context, req search.Request) (*search.FindRe
 	}
 	c.mu.Unlock()
 
-	var resp findResponse
+	var resp searchResponse
 	if err := c.postJSON(ctx, "/api/v1/search/search", body, &resp); err != nil {
 		return nil, err
 	}
-	return toFindResult(&resp), nil
+	return toFindResult(&resp.Result), nil
 }
 
 func (c *Client) doSearch(ctx context.Context, path string, req search.Request) (*search.FindResult, error) {
@@ -95,11 +100,11 @@ func (c *Client) doSearch(ctx context.Context, path string, req search.Request) 
 		body["target_uri"] = req.TargetURI
 	}
 
-	var resp findResponse
+	var resp searchResponse
 	if err := c.postJSON(ctx, path, body, &resp); err != nil {
 		return nil, err
 	}
-	return toFindResult(&resp), nil
+	return toFindResult(&resp.Result), nil
 }
 
 func toFindResult(resp *findResponse) *search.FindResult {

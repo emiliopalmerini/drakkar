@@ -97,32 +97,56 @@ func TestFind_ServerError(t *testing.T) {
 // --- search: Search ---
 
 func TestSearch_SendsSessionID(t *testing.T) {
-	var gotBody map[string]any
+	var gotSearchBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/search/search" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": "ok",
+				"result": map[string]any{"session_id": "sess-abc"},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/sess-abc/messages":
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": "ok",
+				"result": map[string]any{"session_id": "sess-abc", "message_count": 1},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/search/search":
+			body, _ := io.ReadAll(r.Body)
+			json.Unmarshal(body, &gotSearchBody)
+			json.NewEncoder(w).Encode(map[string]any{
+				"resources": []any{},
+				"memories":  []any{},
+				"skills":    []any{},
+				"total":     0,
+			})
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.Error(w, "not found", http.StatusNotFound)
 		}
-		body, _ := io.ReadAll(r.Body)
-		json.Unmarshal(body, &gotBody)
-		json.NewEncoder(w).Encode(map[string]any{
-			"resources": []any{},
-			"memories":  []any{},
-			"skills":    []any{},
-			"total":     0,
-		})
 	}))
 	defer srv.Close()
 
 	c := openviking.NewClient(srv.URL, "")
-	_, err := c.Search(context.Background(), search.Request{
+
+	// Create a session first via AddMemory.
+	_, err := c.AddMemory(context.Background(), "some context", "user")
+	if err != nil {
+		t.Fatalf("AddMemory: %v", err)
+	}
+
+	// Search should include the session_id in the request body.
+	_, err = c.Search(context.Background(), search.Request{
 		Query: "context query",
 		Limit: 3,
 	})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("Search: %v", err)
 	}
-	if gotBody["query"] != "context query" {
-		t.Errorf("query: got %v, want 'context query'", gotBody["query"])
+	if gotSearchBody["query"] != "context query" {
+		t.Errorf("query: got %v, want 'context query'", gotSearchBody["query"])
+	}
+	if gotSearchBody["session_id"] != "sess-abc" {
+		t.Errorf("session_id: got %v, want 'sess-abc'", gotSearchBody["session_id"])
 	}
 }
 

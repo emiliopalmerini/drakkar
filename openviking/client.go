@@ -63,7 +63,26 @@ func (c *Client) Find(ctx context.Context, req search.Request) (*search.FindResu
 }
 
 func (c *Client) Search(ctx context.Context, req search.Request) (*search.FindResult, error) {
-	return c.doSearch(ctx, "/api/v1/search/search", req)
+	body := map[string]any{
+		"query":           req.Query,
+		"limit":           req.Limit,
+		"score_threshold": req.ScoreThreshold,
+	}
+	if req.TargetURI != "" {
+		body["target_uri"] = req.TargetURI
+	}
+
+	c.mu.Lock()
+	if c.sessionID != "" {
+		body["session_id"] = c.sessionID
+	}
+	c.mu.Unlock()
+
+	var resp findResponse
+	if err := c.postJSON(ctx, "/api/v1/search/search", body, &resp); err != nil {
+		return nil, err
+	}
+	return toFindResult(&resp), nil
 }
 
 func (c *Client) doSearch(ctx context.Context, path string, req search.Request) (*search.FindResult, error) {

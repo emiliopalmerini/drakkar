@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/epalmerini/drakkar/memory"
 	mcptestutil "github.com/epalmerini/drakkar/internal/mcptest"
+	"github.com/epalmerini/drakkar/memory"
 	"github.com/mark3labs/mcp-go/mcptest"
 )
 
@@ -22,6 +22,10 @@ func (f *fakeWriter) AddMemory(_ context.Context, content string, role string) (
 	f.capturedContent = content
 	f.capturedRole = role
 	return f.result, f.err
+}
+
+func (f *fakeWriter) CommitSession(_ context.Context) (*memory.CommitResult, error) {
+	return nil, nil
 }
 
 func buildServer(t *testing.T, fake *fakeWriter) *mcptest.Server {

@@ -183,6 +183,37 @@ func (c *Client) AddMemory(ctx context.Context, content string, role string) (*m
 	}, nil
 }
 
+func (c *Client) CommitSession(ctx context.Context) (*memory.CommitResult, error) {
+	c.mu.Lock()
+	sid := c.sessionID
+	c.mu.Unlock()
+
+	if sid == "" {
+		return nil, nil
+	}
+
+	path := fmt.Sprintf("/api/v1/sessions/%s/commit", sid)
+	var resp struct {
+		Status string `json:"status"`
+		Result struct {
+			SessionID         string `json:"session_id"`
+			Status            string `json:"status"`
+			MemoriesExtracted int    `json:"memories_extracted"`
+			Archived          bool   `json:"archived"`
+		} `json:"result"`
+	}
+	if err := c.postJSON(ctx, path, map[string]any{}, &resp); err != nil {
+		return nil, fmt.Errorf("commit session: %w", err)
+	}
+
+	return &memory.CommitResult{
+		SessionID:         resp.Result.SessionID,
+		Status:            resp.Result.Status,
+		MemoriesExtracted: resp.Result.MemoriesExtracted,
+		Archived:          resp.Result.Archived,
+	}, nil
+}
+
 func (c *Client) ensureSession(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

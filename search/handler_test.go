@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/epalmerini/drakkar/search"
 	mcptestutil "github.com/epalmerini/drakkar/internal/mcptest"
+	"github.com/epalmerini/drakkar/search"
 	"github.com/mark3labs/mcp-go/mcptest"
 )
 

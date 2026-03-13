@@ -11,7 +11,13 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func newServer() *server.MCPServer {
+// app holds the MCP server and the OpenViking client for lifecycle management.
+type app struct {
+	server *server.MCPServer
+	client *openviking.Client
+}
+
+func newApp() *app {
 	url := os.Getenv("OPENVIKING_URL")
 	if url == "" {
 		url = "http://localhost:1933"
@@ -26,5 +32,5 @@ func newServer() *server.MCPServer {
 	browse.Register(s, client)
 	memory.Register(s, client)
 
-	return s
+	return &app{server: s, client: client}
 }

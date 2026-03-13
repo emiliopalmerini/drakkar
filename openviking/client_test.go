@@ -429,3 +429,78 @@ func TestAddMemory_SessionCreateError(t *testing.T) {
 		t.Fatal("expected error when session creation fails")
 	}
 }
+
+// --- memory: CommitSession ---
+
+func TestCommitSession_SendsCorrectRequest(t *testing.T) {
+	var commitPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": "ok",
+				"result": map[string]any{"session_id": "sess-commit"},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/sess-commit/messages":
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": "ok",
+				"result": map[string]any{"session_id": "sess-commit", "message_count": 1},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions/sess-commit/commit":
+			commitPath = r.URL.Path
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": "ok",
+				"result": map[string]any{
+					"session_id":         "sess-commit",
+					"status":             "committed",
+					"memories_extracted": 2,
+					"archived":           true,
+				},
+			})
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := openviking.NewClient(srv.URL, "")
+
+	// Must add a memory first to create a session.
+	_, err := c.AddMemory(context.Background(), "something", "user")
+	if err != nil {
+		t.Fatalf("AddMemory: %v", err)
+	}
+
+	result, err := c.CommitSession(context.Background())
+	if err != nil {
+		t.Fatalf("CommitSession: %v", err)
+	}
+	if commitPath != "/api/v1/sessions/sess-commit/commit" {
+		t.Errorf("commit path: got %q", commitPath)
+	}
+	if result.SessionID != "sess-commit" {
+		t.Errorf("session_id: got %q, want 'sess-commit'", result.SessionID)
+	}
+	if result.Status != "committed" {
+		t.Errorf("status: got %q, want 'committed'", result.Status)
+	}
+	if result.MemoriesExtracted != 2 {
+		t.Errorf("memories_extracted: got %d, want 2", result.MemoriesExtracted)
+	}
+	if !result.Archived {
+		t.Error("expected archived=true")
+	}
+}
+
+func TestCommitSession_NoSessionIsNoop(t *testing.T) {
+	c := openviking.NewClient("http://unused", "")
+
+	result, err := c.CommitSession(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil result when no session exists, got %+v", result)
+	}
+}
